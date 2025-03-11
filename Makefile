@@ -6,7 +6,8 @@
 # mkernel-y := mdevice.o 
 obj-m += mkernel_demo.o
 mkernel_demo-y := mdevice.o mkernel.o
-KDIR := /usr/src/linux
+# KDIR := /usr/src/linux
+KDIR := /lib/modules/$(shell uname -r)/build
 PWD 	:= $(shell pwd)
 
 

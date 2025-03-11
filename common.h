@@ -3,8 +3,11 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <asm/io.h>
-#include <asm/uaccess.h>
+#include <linux/io.h>
+#include <linux/uaccess.h>
+#include <linux/init.h>
+#include <linux/cdev.h>
+#include <linux/mm.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -18,6 +21,8 @@
 #define DATA_DEVICE_NAME "mdata"
 #define IOCTL_DEVICE_NAME "mioctl"
 #define IOCTL_DEVICE_CLASS_NAME "mioctl_class"
+
+#define MEM_SIZE 256*4096
 
 /*注意在需要被多文件共享的函数声明的时候不能使用static关键字
 *因为static关键字的最重要的作用就是隐藏，加了static关键字的变量和函数都不能全局可见

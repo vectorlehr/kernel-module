@@ -1,9 +1,26 @@
 #include "common.h"
+#include "utils.h"
 
-
+static char *shared_mem;
 int ioctl_device_num;
 struct class *ioctl_device_class = NULL;
 struct device *ioctl_device = NULL;
+int i;
+
+static int mmap_mmap(struct file *filp, struct vm_area_struct *vma) {
+    unsigned long length = vma->vm_end - vma->vm_start;
+
+    if (length > MEM_SIZE) {
+        return -EINVAL;
+    }
+
+    // 物理地址映射到用户空间
+    if (remap_pfn_range(vma, vma->vm_start, virt_to_phys(shared_mem) >> PAGE_SHIFT, length, vma->vm_page_prot)) {
+        return -EAGAIN;
+    }
+
+    return 0;
+}
 
 struct file_operations ioctl_ops =
 {
@@ -12,6 +29,7 @@ struct file_operations ioctl_ops =
     // .open = device_open,
     // .release = device_close,
     .unlocked_ioctl = test_ioctl,
+    .mmap = mmap_mmap,
 };
 
 /*
@@ -19,25 +37,35 @@ struct file_operations ioctl_ops =
 */
 
 long test_ioctl(struct file* filep, unsigned int cmd, unsigned long arg){
-    switch (cmd)
-    {
-    case TEST_IOCTL_ZERO:
-        printk(KERN_INFO "LEHR %s cmd Zero %d\n", __func__, cmd);
-        break;
 
-    case TEST_IOCTL_FIRST:
-        printk(KERN_INFO "LEHR %s cmd Fisrt %d\n", __func__, cmd);
-        break;
-    
-    case TEST_IOCTL_SECOND:
-        printk(KERN_INFO "LEHR %s cmd Second %d\n", __func__, cmd);
-        break;
 
-    default:
-        printk(KERN_INFO "LEHR %s cmd default %d\n", __func__, cmd);
-        break;
+    for(i = 0; i < 256; ++i){
+        flush(&shared_mem[i * 4096]);
     }
+
+    maccess(&shared_mem['S' * 4096]);
+
     return 1ll;
+
+    // switch (cmd)
+    // {
+    // case TEST_IOCTL_ZERO:
+    //     printk(KERN_INFO "LEHR %s cmd Zero %d\n", __func__, cmd);
+    //     break;
+
+    // case TEST_IOCTL_FIRST:
+    //     printk(KERN_INFO "LEHR %s cmd Fisrt %d\n", __func__, cmd);
+    //     break;
+    
+    // case TEST_IOCTL_SECOND:
+    //     printk(KERN_INFO "LEHR %s cmd Second %d\n", __func__, cmd);
+    //     break;
+
+    // default:
+    //     printk(KERN_INFO "LEHR %s cmd default %d\n", __func__, cmd);
+    //     break;
+    // }
+    // return 1ll;
 }
 
 int ioctl_device_init(void){
@@ -75,10 +103,30 @@ int ioctl_device_init(void){
     }
 
     printk(KERN_INFO "LEHR_IOCTL ioctl device register succeed!\n");
+
+    shared_mem = (char *)kmalloc(MEM_SIZE, GFP_KERNEL);
+    if (!shared_mem)
+        return -ENOMEM;
+    else
+        printk(KERN_INFO "LEHR_IOCTL shared_mem kmalloc succeed!\n");
+    memset(shared_mem, 0, MEM_SIZE);
+
+    // shared_mem[0] = 'S';
+    // shared_mem[1] = 'E';
+    // shared_mem[2] = 'C';
+    // shared_mem[3] = 'R';
+    // shared_mem[4] = 'E';
+    // shared_mem[5] = 'T';
+    // shared_mem[6] = '!';
+    // shared_mem[7] = '\0';
+
+
+
     return 1;
 }
 
 void ioctl_device_exit(void){
+    kfree(shared_mem);
     device_destroy(ioctl_device_class, MKDEV(ioctl_device_num, 0));
     class_destroy(ioctl_device_class);
     unregister_chrdev(ioctl_device_num, IOCTL_DEVICE_NAME);
